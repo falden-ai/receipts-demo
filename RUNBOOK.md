@@ -52,12 +52,29 @@ Record the base commit and the resulting repository digest, which must be
 target image reference. The digest pins the exact built image; the Dockerfile's
 Python base tag is resolved at build time.
 
+On 11/1 the image was built and both no-network checks ran on the eval VM, which
+was given no registry credential. The VM saved the image with `docker save`, and
+the PC, which had no Docker daemon running, pushed it with `crane` instead of
+`docker push`. A newly published package is private. After an organization owner
+allowed public packages, the package was made public, so the VM pulls it with
+no credential. Check the image's history and files for secrets before that step:
+GitHub does not let a public package go private again. The pinned image is
+`ghcr.io/falden-ai/receipts-demo@sha256:c9825352a56bc24942994fbf5432e3a56dc2d1bd5904c9b6c2a91d9670a2a86e`,
+built from base `70317f960c2e9206a08d8d08a0ff02fe565e622a`.
+
 Have a coding agent open a PR from a branch of this same repository. Deliberately
 change `quantity >= 5` to `quantity > 5`, leaving the tests intact. Use this PR
 body and show it in the video:
 
 > Falden-owned demo repository. This regression was planted for the demonstration.
 > The discount must apply at five items or more.
+>
+> Below is how a coding agent might describe this change. Its claims are false on purpose, and Receipts checks them:
+>
+> > Simplifies the bulk discount check in `total_cents`. No behavior change: orders of five or more items still get the 10 percent discount. All existing tests pass.
+
+On 11/1 a run on the two disclosure lines alone extracted no claims and had no
+findings; it was not posted. The quoted summary gives Receipts claims to test.
 
 The base tests pass; this patch fails the quantity-five test. This is a planted
 regression with a base oracle, not a claim about a third-party repository.
@@ -65,23 +82,23 @@ regression with a base oracle, not a claim about a third-party repository.
 ## Prepare the LIVE target and run Receipts
 
 `target.template.json` is a RunItem template, not an executable target yet.
-Replace `OWNER`, both SHA placeholders, the image digest, and the diff placeholder
-with the exact PR values. Keep `tier` as `live` and `temperatures` as `spec`.
+Replace `OWNER`, both SHA placeholders, the image digest, the diff placeholder and
+the body with the exact PR values, since the template's body holds only the
+disclosure. Keep `tier` as `live` and `temperatures` as `spec`.
 Serialize the result as one JSON object on one line in `run.jsonl`. The patch is
 the actual unified diff from that base to that head, including hunk headers.
 
-Before the VM run, the integrator must land **IR-1**: non-Tier-A targets must load
-their tree from the image. The current sandbox loads the image tree only for
-Tier A. Do not run this LIVE demo until the base tree can be read from
-`/workspace` and the patch is applied to a separate copy of that tree. Do not
-work around this by changing the tier or using `runc`.
+A LIVE target with an image and no checkout gets its base tree from the image's
+`/workspace`. Each side gets its own copy of that tree, and the patch is applied
+only to the patch side's copy. Without `runsc` a LIVE target is refused rather
+than run under `runc`; do not change the tier to get around that.
 
 On the eval VM, pull the digest-pinned image in the trusted preparation phase.
 Confirm `runsc` is installed; LIVE runs require gVisor. Use the existing approved
 arms file for the demo run:
 
 ```sh
-UV_OFFLINE=1 uv run --frozen receipts run --targets run.jsonl --arms ARMS.json --ledger-dir demo-ledgers --jobs 1
+UV_OFFLINE=1 uv run --frozen receipts run --targets run.jsonl --arms demo/arms.json --ledger-dir "runs/check-demo-$(date -u +%Y%m%dT%H%M%SZ)/ledgers" --jobs 1
 ```
 
 The run phase has no network. Keep repository code and its sandbox separate from
@@ -95,8 +112,7 @@ quote, repro, replay key, and captured test output in the public repository.
 
 ## Preview, post, and record the frame
 
-The integrator must wire `receipts.surface.check_command.register` into
-`LANE_COMMANDS` before using this command through the main CLI.
+`receipts check post` is part of the main CLI.
 
 ```sh
 UV_OFFLINE=1 uv run --frozen receipts check post --ledger LEDGER.jsonl --targets run.jsonl --target-id receipts-demo-pr-1 --repo OWNER/receipts-demo --head-sha HEAD_SHA
@@ -129,17 +145,17 @@ no Re-verify, File ticket, or Accept risk buttons. Those actions require a
 webhook receiver that this slice does not provide.
 
 Capture the check and annotation with the planted-demo disclosure on screen.
-Record these fields in the lane report after the manual run:
+The live run on 11/1 (00:28Z on 11/2) and its two posts recorded these values:
 
 | Evidence | Value |
 | --- | --- |
-| PR URL and head SHA | Pending founder repository and PR |
-| Base image repository digest | Pending Docker build and publication |
-| Selected ledger path | Pending IR-1 and eval VM run |
-| First check-run id and URL | Pending App setup and first post |
-| Second check-run id and URL | Pending second post; must differ from the first |
-| Number of this App's check runs on the SHA | Pending GitHub confirmation; two after two posts on a fresh SHA |
-| Newest check's annotations | Pending confirmation; one per current annotatable blocker, none for refuted blockers |
+| PR URL and head SHA | https://github.com/falden-ai/receipts-demo/pull/1, head `1968d37e4a905d635b65f0e8c7ceca9e034107e2` |
+| Base image repository digest | `ghcr.io/falden-ai/receipts-demo@sha256:c9825352a56bc24942994fbf5432e3a56dc2d1bd5904c9b6c2a91d9670a2a86e` |
+| Selected ledger path | `runs/check-demo-20261102T002817Z/ledgers/spark.jsonl` (Spark arm: 11 findings, 8 blockers) |
+| First check-run id and URL | 125031904405, https://github.com/falden-ai/receipts-demo/runs/125031904405 |
+| Second check-run id and URL | 125031919634, https://github.com/falden-ai/receipts-demo/runs/125031919634 |
+| Number of this App's check runs on the SHA | Two, both failure: "8 blockers; 0 suspected, 3 unchecked" |
+| Newest check's annotations | Eight, one per blocker, all at `checkout_demo/__init__.py:9` |
 | Screenshot path | Pending capture |
 
 Exit codes: 0 for preview or successful post, 1 for invalid input or a GitHub
