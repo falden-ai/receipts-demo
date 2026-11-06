@@ -15,8 +15,8 @@ public demo package, tests, image recipe, and setup instructions.
    installable only on that account and install it on `receipts-demo` only.
    There is no receiver, workflow, or `pull_request_target` trigger.
 3. Generate the App's RSA private key. On the PC save it outside every repository
-   at `~/.config/falden-receipts/github-app.pem`, mode 600. Do not put it in
-   `secrets.env`, the image, the eval VM, a run file, or a ledger. Record the App
+   at a path of your choosing, mode 600. Do not put it in
+   an env file, the image, the eval VM, a run file, or a ledger. Record the App
    id and installation id. Posting uses system OpenSSL, with no Python signing
    dependency.
 4. In the posting shell on the PC, set only these App configuration variables:
@@ -24,7 +24,7 @@ public demo package, tests, image recipe, and setup instructions.
    ```sh
    export RECEIPTS_GITHUB_APP_ID=APP_ID
    export RECEIPTS_GITHUB_APP_INSTALLATION_ID=INSTALLATION_ID
-   export RECEIPTS_GITHUB_APP_KEY_FILE="$HOME/.config/falden-receipts/github-app.pem"
+   export RECEIPTS_GITHUB_APP_KEY_FILE=/path/outside/every/repository/github-app.pem
    chmod 600 "$RECEIPTS_GITHUB_APP_KEY_FILE"
    ```
 
